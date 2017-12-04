@@ -21,25 +21,28 @@ int main(void)
 
     UARTInit(); //enable UART
 
-    ADC10CTL0 |= ADC10ON + SREF1; //Turn ADC on
-    ADC10CTL1 |= INCH_0|ADC10SSEL_1|CONSEQ_1; //Input on p1.0, using aclk, sequence of channels, no repeat
-    ADC10AE0  |= BIT0|BIT1; //P1.0 and P1.1 enabled for analog input
-    ADC10CTL0 |= ENC|ADC10SC; //conversion enabled, sample and conversion started
-    TA0CCR0 = 0x32768; //set CCR0 to 32k, so once per second
-    TA0CTL = TASSEL_1|ID_0|MC_1|TAIE;// ACLK, Divide by 1, Up mode, Interrupt enable
-    _BIS_SR(LPM3_bits + GIE);// Enter Low power mode
+    ADC10CTL1 |= INCH_7 + SHS_1; //Input on p1.7, sample and hold on
+    ADC10AE0  |= BIT5 + BIT7; //P1.7 and P1.5 enabled for analog input
+    ADC10CTL0 |= SREF_1 + ADC10SHT_2 + REFON + ADC10ON + ADC10IE;
 
-    return 0;
+    TA0CCR0 = 0x32768; //set CCR0 to 32k, so once per second
+    TA0CTL = TASSEL_1|ID_0|MC_1;// ACLK, Divide by 1, Up mode, Interrupt enable
+    TA0CCTL0 = CCIE;
+
+    __bis_SR_register(GIE);// Enter Low power mode
+    while(1);
 }
 
-#pragma vector=TIMER0_A1_VECTOR
+#pragma vector=TIMER0_A0_VECTOR
 __interrupt void Timer_A(void)
 {
     ADC10CTL0 |= ENC|ADC10SC; //read from adc
-    int temp = (ADC10MEM*35)/100; //multiply adc reading by 35, divide by 100. This puts results into degrees
-    TA0CTL &= ~(TAIFG);
-    UCA0TXBUF = temp;
-    __no_operation();
+
+    UCA0TXBUF = ADC10MEM;
+}
+
+#pragma vector=ADC10_VECTOR
+__interrupt void ADC10_Interrupt(void){
 }
 
 void UARTInit(void){
@@ -57,5 +60,5 @@ void UARTInit(void){
      UCA0BR1 = 0;                              // 1MHz 9600
      UCA0MCTL = UCBRS0;                        // Modulation UCBRSx = 1
      UCA0CTL1 &= ~UCSWRST;                     // **Initialize USCI state machine**
-     IE2 |= UCA0RXIE;                          // Enable USCI_A0 RX interrupt
+     //IE2 |= UCA0RXIE;                          // Enable USCI_A0 RX interrupt
 }
